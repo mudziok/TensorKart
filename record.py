@@ -34,8 +34,7 @@ j = pyvjoy.VJoyDevice(2)
 MAX_VJOY = 32767
 
 MAX_JOY_VAL = math.pow(2, 15)
-joy_x = 0
-joy_y = 0
+joy_xy = (0, 0)
 manual = False
 recording = False
 working = True
@@ -51,9 +50,9 @@ def gamepadThread():
     
         for event in events:
             if (event.code == 'ABS_Y'):
-                joy_y = event.state / MAX_JOY_VAL
+                joy_xy = (joy_xy[0], event.state / MAX_JOY_VAL)
             if (event.code == 'ABS_X'):
-                joy_x = event.state / MAX_JOY_VAL
+                joy_xy = (event.state / MAX_JOY_VAL, joy_xy[1])
             if (event.code == 'BTN_TL' and event.state == True):
                 manual = not manual
                 state = ("off", "on")[manual]
@@ -77,8 +76,7 @@ def pingpongThread():
 model = create_model(keep_prob=1)
 model.load_weights('model_weights.h5')
 
-final_x = 0
-final_y = 0
+final_xy = (0, 0)
 
 outfile = open('data/inputs.csv', 'a')
 
@@ -93,31 +91,28 @@ while working:
     
     vec = np.expand_dims(resized, axis=0)
     prediction = model.predict(vec, batch_size=1)[0]
-    circle_x = prediction[0]
-    circle_y = prediction[1]
-
+    circle_xy = (prediction[0], prediction[1])
+    
     ball_color = white
     if (manual == True):
-        final_x = joy_x
-        final_y = joy_y
+        final_xy = joy_xy
         ball_color = orange
     else:
-        final_x = circle_x
-        final_y = circle_y
+        final_xy = circle_xy
 
-    j.data.wAxisX = int(((final_x / 2) + 0.5) * MAX_VJOY)
-    j.data.wAxisY = int(((-final_y / 2) + 0.5) * MAX_VJOY)
+    j.data.wAxisX = int(((final_xy[0] / 2) + 0.5) * MAX_VJOY)
+    j.data.wAxisY = int(((-final_xy[1] / 2) + 0.5) * MAX_VJOY)
     j.update()
 
-    if False:
+    if manual:
         adress = "data/a" + str(frame) + ".png"
         cv2.imwrite(adress, small)
-        outfile.write(adress + ';' + str(final_x) + ';' + str(final_y) + '\n')
+        outfile.write(adress + ';' + str(final_xy[0]) + ';' + str(final_xy[1]) + '\n')
         frame += 1
 
     #big = cv2.resize(resized, (int(width), int(height)), interpolation = cv2.INTER_AREA)
 
-    ball = (int(width/2 + (final_x * radius)), int(height/2 - (final_y * radius)))
+    ball = (int(width/2 + (final_xy[0] * radius)), int(height/2 - (final_xy[1] * radius)))
     final = cv2.line(small, (int(width/2), int(height/2)), ball, black, 5) 
     final = cv2.circle(final, ball, 20, ball_color, -1)
     
