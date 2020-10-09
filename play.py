@@ -1,85 +1,89 @@
-#!/usr/bin/env python
-
-from utils import resize_image, XboxController
-from termcolor import cprint
-
-import gym
-import gym_mupen64plus
-from train import create_model
 import numpy as np
+import cv2
+from mss import mss
+from PIL import Image
+from skimage.transform import resize
+from skimage.io import imread
+import math
+import pyvjoy
+from threading import Thread
+from inputs import get_gamepad
 
-# Play
-class Actor(object):
+from train import create_model
 
-    def __init__(self):
-        # Load in model from train.py and load in the trained weights
-        self.model = create_model(keep_prob=1) # no dropout
-        self.model.load_weights('model_weights.h5')
+def resize_image(img):
+    im = resize(img, (120, 160, 3))
+    im_arr = im.reshape((120, 160, 3))
+    return im_arr
 
-        # Init contoller for manual override
-        self.real_controller = XboxController()
+coords = {'top': 34, 'left':3, 'width':640, 'height':480}
+sct = mss()
 
-    def get_action(self, obs):
+white = (255, 255, 255)
+black = (0, 0, 0)
 
-        ### determine manual override
-        manual_override = self.real_controller.LeftBumper == 1
+width = 640
+height = 480
 
-        if not manual_override:
-            ## Look
-            vec = resize_image(obs)
-            vec = np.expand_dims(vec, axis=0) # expand dimensions for predict, it wants (1,66,200,3) not (66, 200, 3)
-            ## Think
-            joystick = self.model.predict(vec, batch_size=1)[0]
+radius = 80
 
-        else:
-            joystick = self.real_controller.read()
-            joystick[1] *= -1 # flip y (this is in the config when it runs normally)
+j = pyvjoy.VJoyDevice(2)
+MAX_VJOY = 32767
 
+MAX_JOY_VAL = math.pow(2, 15)
+joy_x = 0
+joy_y = 0
+manual = False
 
-        ## Act
+def gamepadThread():
+    global joy_x
+    global joy_y
+    global manual
+    while True:
+        events = get_gamepad()
+    
+        for event in events:
+            if (event.code == 'ABS_Y'):
+                joy_y = event.state / MAX_JOY_VAL
+            if (event.code == 'ABS_X'):
+                joy_x = event.state / MAX_JOY_VAL
+            if (event.code == 'BTN_TL' and event.state == True):
+                manual = not manual
+                state = ("off", "on")[manual]
+                print('Toggled manual ' + state)
 
-        ### calibration
-        output = [
-            int(joystick[0] * 80),
-            int(joystick[1] * 80),
-            int(round(joystick[2])),
-            int(round(joystick[3])),
-            int(round(joystick[4])),
-        ]
+captureGamepad = Thread(target = gamepadThread)
+captureGamepad.start()
 
-        ### print to console
-        if manual_override:
-            cprint("Manual: " + str(output), 'yellow')
-        else:
-            cprint("AI: " + str(output), 'green')
+model = create_model(keep_prob=1)
+model.load_weights('model_weights.h5')
 
-        return output
+frame = 0
+while True:
+    sct_img = sct.grab(coords)
+    img_bgr = Image.frombytes('RGB', (sct_img.size.width, sct_img.size.height), sct_img.rgb)
+    small = cv2.resize(np.array(img_bgr), (160, 120), interpolation = cv2.INTER_AREA)
 
+    resized = resize_image(small)
+    
+    vec = np.expand_dims(resized, axis=0)
+    prediction = model.predict(vec, batch_size=1)[0]
+    circle_x = prediction[0]
+    circle_y = prediction[1]
 
-if __name__ == '__main__':
-    env = gym.make('Mario-Kart-Royal-Raceway-v0')
+    j.data.wAxisX = int(((joy_x / 2) + 0.5) * MAX_VJOY)
+    j.data.wAxisY = int(((-circle_y / 2) + 0.5) * MAX_VJOY)
+    j.update()
 
-    obs = env.reset()
-    env.render()
-    print('env ready!')
+    big = cv2.resize(resized, (int(width), int(height)), interpolation = cv2.INTER_AREA)
 
-    actor = Actor()
-    print('actor ready!')
-
-    print('beginning episode loop')
-    total_reward = 0
-    end_episode = False
-    while not end_episode:
-        action = actor.get_action(obs)
-        obs, reward, end_episode, info = env.step(action)
-        env.render()
-        total_reward += reward
-
-    print('end episode... total reward: ' + str(total_reward))
-
-    obs = env.reset()
-    print('env ready!')
-
-    input('press <ENTER> to quit')
-
-    env.close()
+    ball = (int(width/2 + (circle_x * radius)), int(height/2 - (circle_y * radius)))
+    final = cv2.line(big, (int(width/2), int(height/2)), ball, black, 5) 
+    final = cv2.circle(final, ball, 20, white, -1)
+    
+    cv2.imshow('test', big)
+    
+    frame += 1
+    if cv2.waitKey(25) & 0xFF == ord('q'):
+        cv2.destroyAllWindows()
+        break

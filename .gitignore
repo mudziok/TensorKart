@@ -1,9 +1,1 @@
-samples/**
-MarioKart64.z64
-*.pyc
-*.npy
-checkpoint
-model.ckpt*
-*.gif
-*.ogv
-*.mp4
+data/**

@@ -1,16 +1,13 @@
-#!/usr/bin/env python
-
 import numpy as np
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D
 from keras import optimizers
 from keras import backend as K
-from utils import Sample
 
 # Global variable
-OUT_SHAPE = 5
-INPUT_SHAPE = (Sample.IMG_H, Sample.IMG_W, Sample.IMG_D)
+OUT_SHAPE = 2
+INPUT_SHAPE = (120, 160, 3)
 
 
 def customized_loss(y_true, y_pred, loss='euclidean'):
@@ -52,13 +49,13 @@ def create_model(keep_prob = 0.8):
 if __name__ == '__main__':
     # Load Training Data
     x_train = np.load("data/X.npy")
-    y_train = np.load("data/y.npy")
+    y_train = np.load("data/Y.npy")
 
     print(x_train.shape[0], 'train samples')
 
     # Training loop variables
-    epochs = 100
-    batch_size = 50
+    epochs = 10
+    batch_size = 64
 
     model = create_model()
     model.compile(loss=customized_loss, optimizer=optimizers.adam())
