@@ -9,9 +9,18 @@ import pyvjoy
 from threading import Thread
 from inputs import get_gamepad
 from inputs import devices
+import os
 import time
+import sys
 
 from train import create_model
+
+recording_path = 'nopathgiven'
+if (len(sys.argv) > 1):
+    recording_path = 'data/' + str(sys.argv[1])
+else:
+    print("No recording path given (try: 'python record.py pathname')")
+    exit()  
 
 def resize_image(img):
     im = resize(img, (120, 160, 3))
@@ -32,9 +41,11 @@ radius = 80
 
 j = pyvjoy.VJoyDevice(2)
 MAX_VJOY = 32767
-
 MAX_JOY_VAL = math.pow(2, 15)
+
 joy_xy = (0, 0)
+final_xy = (0, 0)
+
 manual = False
 recording = False
 working = True
@@ -76,9 +87,12 @@ def pingpongThread():
 model = create_model(keep_prob=1)
 model.load_weights('model_weights.h5')
 
-final_xy = (0, 0)
-
-outfile = open('data/inputs.csv', 'a')
+if os.path.exists(recording_path):
+    print("There is already a path with given name, try one that you haven't used yet")
+    exit()
+else:
+    os.mkdir(recording_path)
+outfile = open(recording_path + '/inputs.csv', 'a')
 
 frame = 0
 while working:
@@ -105,19 +119,18 @@ while working:
     j.update()
 
     if manual:
-        adress = "data/a" + str(frame) + ".png"
+        adress = recording_path + '/' + str(frame) + ".png"
         cv2.imwrite(adress, small)
         outfile.write(adress + ';' + str(final_xy[0]) + ';' + str(final_xy[1]) + '\n')
         frame += 1
 
-    #big = cv2.resize(resized, (int(width), int(height)), interpolation = cv2.INTER_AREA)
+    big = cv2.resize(resized, (int(width), int(height)), interpolation = cv2.INTER_AREA)
 
     ball = (int(width/2 + (final_xy[0] * radius)), int(height/2 - (final_xy[1] * radius)))
-    final = cv2.line(small, (int(width/2), int(height/2)), ball, black, 5) 
+    final = cv2.line(big, (int(width/2), int(height/2)), ball, black, 5) 
     final = cv2.circle(final, ball, 20, ball_color, -1)
     
-    cv2.imshow('test', small)
-
+    cv2.imshow('TensorPet - Record.py', final)
     
     if cv2.waitKey(25) & 0xFF == ord('q'):
         cv2.destroyAllWindows()
