@@ -51,8 +51,7 @@ recording = False
 working = True
 
 def gamepadThread():
-    global joy_x
-    global joy_y
+    global joy_xy
     global manual
     global recording
     global working
