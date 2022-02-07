@@ -1,12 +1,14 @@
 TensorPet
 ==========
-TensorKart ported to work with Pet Racer (Techland, 2003)
+The idea of TensorKart ported to work with Pet Racer (Techland, 2003)
 
-Work on readme in progress
+## AI racing on the first track of the game
 
+![Alt Text](preview.gif)
 
+(Game controlled by AI on the left, AI prediction visualized on the right)
 
-Special Thanks To
+Inspired by
 -----------------
 * https://github.com/kevinhughes27/TensorKart
 * https://github.com/SullyChen/Autopilot-TensorFlow

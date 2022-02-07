@@ -71,7 +71,7 @@ while True:
     circle_x = prediction[0]
     circle_y = prediction[1]
 
-    j.data.wAxisX = int(((joy_x / 2) + 0.5) * MAX_VJOY)
+    j.data.wAxisX = int(((circle_x / 2) + 0.5) * MAX_VJOY)
     j.data.wAxisY = int(((-circle_y / 2) + 0.5) * MAX_VJOY)
     j.update()
 
